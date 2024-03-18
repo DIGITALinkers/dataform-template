@@ -1,0 +1,6 @@
+{
+  "name": "dataform-formation",
+  "dependencies": {
+    "@dataform/core": "2.8.3"
+  }
+}
