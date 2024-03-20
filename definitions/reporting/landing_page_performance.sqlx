@@ -1,0 +1,51 @@
+config {
+    type: "incremental",
+    schema: "reporting",
+    name: "landing_page_performance",
+    description: "A custom landing page performance report",
+    bigquery: {
+        updatePartitionFilter: "date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+WITH
+  prep AS (
+  SELECT
+    user_pseudo_id,
+    unique_session_id,
+    MIN(date_partition) AS date,
+    MAX(CASE WHEN (CASE WHEN event_name = 'page_view' THEN epk_entrances ELSE NULL END) = 1 THEN (CASE WHEN event_name = 'page_view' THEN epk_page_location ELSE NULL END) END) AS landing_page,
+    MAX(epk_session_engaged) AS session_engaged,
+    SUM(epk_engagement_time_msec) AS engagement_time_msec,
+    MAX(epk_ga_session_number) AS session_number,
+    COUNTIF(event_name = 'purchase') AS conversions,
+    SUM(CASE WHEN event_name = 'purchase' THEN ecommerce.purchase_revenue END) AS purchase_revenue
+  FROM
+    ${ref("flat_events")}
+  GROUP BY
+    user_pseudo_id,
+    unique_session_id)
+
+SELECT
+  --date,
+  landing_page,
+  COUNT(DISTINCT user_pseudo_id) AS users,
+  COUNT(DISTINCT unique_session_id) AS sessions,
+  COUNT(DISTINCT CASE WHEN session_number = 1 THEN user_pseudo_id END) AS new_users,
+  COUNT(DISTINCT CASE WHEN session_number = 1 THEN unique_session_id END) / COUNT(DISTINCT unique_session_id) AS percentage_new_sessions,
+  COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END) AS engaged_sessions,
+  SAFE_DIVIDE(SUM(engagement_time_msec/1000),COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END)) AS average_engagement_time_per_session_seconds,
+  SAFE_DIVIDE(COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END), COUNT(DISTINCT unique_session_id)) AS engagement_rate,
+  SUM(conversions) AS conversions,
+  SUM(purchase_revenue) AS purchase_revenue,
+  SAFE_DIVIDE(SUM(conversions),COUNT(DISTINCT unique_session_id)) AS conversion_rate
+FROM
+  prep
+WHERE
+  landing_page IS NOT NULL
+GROUP BY
+  --date,
+  landing_page
+ORDER BY
+  sessions desc

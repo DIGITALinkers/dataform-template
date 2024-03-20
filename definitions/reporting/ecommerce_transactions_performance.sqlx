@@ -1,0 +1,90 @@
+config {
+    type: "incremental",
+    schema: "reporting",
+    name: "ecommerce_transactions_performance",
+    description: "A custom ecommerce transactions performance report",
+    bigquery: {
+        updatePartitionFilter: "date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+
+WITH
+  prep AS (
+  SELECT
+    user_pseudo_id,
+    unique_session_id,
+    date_partition AS date,
+    MAX(epk_session_engaged) AS session_engaged,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.transaction_id END AS transaction_id,
+    TIMESTAMP_MICROS(CASE WHEN event_name = 'purchase' THEN event_timestamp END) AS transaction_timestamp,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.total_item_quantity END AS total_item_quantity,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.unique_items END AS unique_items,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.purchase_revenue END AS purchase_revenue,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.refund_value END AS refund_value,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.tax_value END AS tax_value,
+    CASE WHEN event_name = 'purchase' THEN ecommerce.shipping_value END AS shipping_value
+  FROM
+    ${ref("flat_events")}
+  GROUP BY
+    user_pseudo_id,
+    unique_session_id,
+    date,
+    transaction_id,
+    transaction_timestamp,
+    total_item_quantity,
+    unique_items,
+    purchase_revenue,
+    refund_value,
+    tax_value,
+    shipping_value )
+
+SELECT
+  date,
+  COUNT(DISTINCT transaction_id) AS nb_transactions,
+  SUM(purchase_revenue) AS purchase_revenue,
+  COUNT(DISTINCT
+    CASE
+      WHEN transaction_id IS NOT NULL THEN user_pseudo_id
+  END
+    ) AS nb_purchasers,
+  COUNT(DISTINCT transaction_id)/COUNT(DISTINCT user_pseudo_id) AS ecommerce_conversion_rate_users,
+  COUNT(DISTINCT transaction_id)/COUNT(DISTINCT unique_session_id) AS ecommerce_conversion_rate_all_sessions,
+  COUNT(DISTINCT transaction_id) / COUNT(DISTINCT
+    CASE
+      WHEN session_engaged = '1' THEN unique_session_id
+    ELSE
+    NULL
+  END
+    ) AS ecommerce_conversion_rate_engaged_sessions,
+  SUM(total_item_quantity) AS total_items,
+  SUM(unique_items) AS unique_items,
+  SUM(refund_value) AS refund_value,
+  SUM(tax_value) AS tax_value,
+  SUM(shipping_value) AS shipping_value,
+  SAFE_DIVIDE(SUM(purchase_revenue),COUNT(DISTINCT user_pseudo_id)) AS average_purchase_revenue_per_user,
+  SAFE_DIVIDE(SUM(purchase_revenue),COUNT(DISTINCT
+      CASE
+        WHEN transaction_id IS NOT NULL THEN user_pseudo_id
+    END
+      )) AS average_purchase_revenue_per_purchaser,
+  SAFE_DIVIDE(SUM(purchase_revenue),COUNT(DISTINCT transaction_id)) AS average_purchase_revenue_per_transaction,
+  SAFE_DIVIDE(SUM(total_item_quantity),COUNT(DISTINCT
+      CASE
+        WHEN transaction_id IS NOT NULL THEN user_pseudo_id
+    END
+      )) AS average_items_per_purchaser,
+  SAFE_DIVIDE(SUM(total_item_quantity),COUNT(DISTINCT transaction_id)) AS average_items_per_transaction,
+  SAFE_DIVIDE(SUM(unique_items),COUNT(DISTINCT
+      CASE
+        WHEN transaction_id IS NOT NULL THEN user_pseudo_id
+    END
+      )) AS average_unique_items_per_purchaser,
+  SAFE_DIVIDE(SUM(unique_items),COUNT(DISTINCT transaction_id)) AS average_unique_items_per_transaction
+FROM
+  prep
+GROUP BY
+  date
+ORDER BY
+  date

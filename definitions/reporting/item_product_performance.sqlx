@@ -1,0 +1,72 @@
+config {
+    type: "incremental",
+    schema: "reporting",
+    name: "item_product_performance",
+    description: "A custom item / product performance report",
+    bigquery: {
+        updatePartitionFilter: "date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+WITH
+  prep AS (
+  SELECT
+    date_partition AS date,
+    items.item_id,
+    items.item_name,
+    items.item_brand,
+    items.item_variant,
+    items.item_category,
+    --items.item_category2,
+    --items.item_category3,
+    --items.item_category4,
+    --items.item_category5,
+    --ipk_item_parameter_string,
+    --ipk_item_parameter_int,
+    COUNT(DISTINCT CASE WHEN event_name = 'purchase' THEN transaction_id END) AS unique_purchases,
+    AVG(CASE WHEN event_name = 'purchase' THEN items.price END) AS average_purchase_price,
+    AVG(CASE WHEN event_name = 'purchase' THEN items.quantity END) AS average_purchase_quantity,
+    SUM(CASE WHEN event_name = 'purchase' THEN items.quantity END) AS item_quantity,
+    SUM(CASE WHEN event_name = 'purchase' THEN items.item_revenue END) AS item_revenue,
+    SUM(CASE WHEN event_name = 'refund' THEN items.item_refund END) AS item_refund,
+    COUNTIF(event_name = 'view_promotion') AS view_promotion,
+    COUNTIF(event_name = 'view_item') AS view_item,
+    COUNTIF(event_name = 'view_item_list') AS view_item_list,
+    COUNTIF(event_name = 'select_item') AS select_item,
+    COUNTIF(event_name = 'add_to_wishlist') AS add_to_wishlist,
+    COUNTIF(event_name = 'add_to_cart') AS add_to_cart,
+    COUNTIF(event_name = 'remove_from_cart') AS remove_from_cart,
+    COUNTIF(event_name = 'view_cart') AS view_cart,
+    COUNTIF(event_name = 'begin_checkout') AS begin_checkout,
+    COUNTIF(event_name = 'add_payment_info') AS add_payment_info,
+    COUNTIF(event_name = 'add_shipping_info') AS add_shipping_info,
+    COUNTIF(event_name = 'purchase') AS purchase,
+    COUNTIF(event_name = 'refund') AS refund
+  FROM
+    ${ref("flat_items")}
+  GROUP BY
+    date,
+    items.item_id,
+    items.item_name,
+    items.item_brand,
+    items.item_variant,
+    items.item_category
+    --,items.item_category2
+    --,items.item_category3
+    --,items.item_category4
+    --,items.item_category5
+    --,ipk_item_parameter_string
+    --,ipk_item_parameter_int
+    )
+
+SELECT
+  *,
+  SAFE_DIVIDE(add_to_cart,view_item) AS cart_to_detail_rate,
+  SAFE_DIVIDE(purchase,view_item) AS buy_to_detail_rate
+FROM
+  prep
+WHERE
+  item_id IS NOT NULL
+  AND item_id != '(not set)'
+  AND unique_purchases > 0
