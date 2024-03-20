@@ -1,0 +1,10 @@
+config {
+    type: "assertion",
+}
+
+SELECT
+    unique_event_id
+FROM
+    ${ref("flat_events")}
+WHERE
+    unique_event_id IS NULL
