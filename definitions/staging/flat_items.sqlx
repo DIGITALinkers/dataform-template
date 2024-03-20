@@ -1,0 +1,41 @@
+config {
+    type: "incremental",
+    schema: "staging",
+    name: "flat_items",
+    description: "Table of flattened GA4 items",
+    uniqueKey: ["unique_event_id"],
+    bigquery: {
+        partitionBy: "date_partition",
+        updatePartitionFilter: "event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+SELECT
+  event_date,
+  date_partition,
+  event_name,
+  ecommerce.transaction_id,
+  -- items (RECORD) We flatten this repeated record of information about items included in an event, thanks to the unnest + crossjoin in the FROM clause.
+  -- The resulting table will have one line per item, rather than per event (some events will be multiplied).
+  items,
+  -------------------------------------------------------------------------------------------
+  -- ITEMS PARAMS (item_params) ------------------------------------------------------
+  -- item_params (RECORD)	A repeated record of item params that you have set. -------
+  -- Capture the specific nested keys of "user_properties" into (ipk_*) fields --------------
+  -------------------------------------------------------------------------------------------
+  --(SELECT value.string_value FROM UNNEST(item_params) where key = 'item_parameter_string') as ipk_item_parameter_string, --change key to select another parameter
+  --(SELECT value.int_value FROM UNNEST(item_params) where key = 'item_parameter_int') as ipk_item_parameter_int --change key to select another parameter
+
+FROM
+  ${ref("flat_events")},
+  UNNEST(items) AS items
+
+WHERE 1=1
+
+  -- for incremental runs, we only want to run the query on the past 3 days. For that we use the incremental() built-in function
+  -- combined with the when() built-in function and with a variable "incremental_days_refresh", defined in dataform.json.
+  
+  ${ when(incremental(),
+    `AND PARSE_DATE("%Y%m%d", _TABLE_SUFFIX) >= DATE_SUB(CURRENT_DATE(), INTERVAL CAST(${dataform.projectConfig.vars.incremental_days_refresh} AS INT64) DAY)`
+  )}
