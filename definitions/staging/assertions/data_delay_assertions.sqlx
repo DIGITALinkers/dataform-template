@@ -8,7 +8,7 @@ js {
 
 WITH max_date AS (
     SELECT
-        DATE_DIFF(CURRENT_DATE(), MAX(dt), DAY) as diff
+        DATE_DIFF(CURRENT_DATE(), MAX(date_partition), DAY) as diff
     FROM
     ${ref("flat_events")}
 )
