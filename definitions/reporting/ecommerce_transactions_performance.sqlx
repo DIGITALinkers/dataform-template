@@ -1,5 +1,5 @@
 config {
-    type: "incremental",
+    type: "table",
     schema: "reporting",
     name: "ecommerce_transactions_performance",
     description: "A custom ecommerce transactions performance report",

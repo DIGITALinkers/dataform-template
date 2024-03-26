@@ -1,5 +1,5 @@
 config {
-    type: "incremental",
+    type: "table",
     schema: "reporting",
     name: "tech_performance",
     description: "A custom tech (device, OS & browser) performance report",

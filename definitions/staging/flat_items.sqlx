@@ -12,6 +12,8 @@ config {
 }
 
 SELECT
+  unique_event_id,
+  unique_session_id,
   event_date,
   date_partition,
   event_name,
@@ -37,5 +39,5 @@ WHERE 1=1
   -- combined with the when() built-in function and with a variable "incremental_days_refresh", defined in dataform.json.
   
   ${ when(incremental(),
-    `AND PARSE_DATE("%Y%m%d", _TABLE_SUFFIX) >= DATE_SUB(CURRENT_DATE(), INTERVAL CAST(${dataform.projectConfig.vars.incremental_days_refresh} AS INT64) DAY)`
+    `AND PARSE_DATE("%Y%m%d", table_suffix) >= DATE_SUB(CURRENT_DATE(), INTERVAL CAST(${dataform.projectConfig.vars.incremental_days_refresh} AS INT64) DAY)`
   )}

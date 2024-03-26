@@ -1,5 +1,5 @@
 config {
-    type: "incremental",
+    type: "table",
     schema: "reporting",
     name: "user_acquisition",
     description: "A custom user acquisition report",

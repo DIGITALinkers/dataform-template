@@ -98,7 +98,9 @@ with ga4_events as (
     
     -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'visitor_status') AS upk_visitor_status,
     -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'custom_client_id') AS upk_custom_client_id,
-    -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'loyalty_level') AS upk_loyalty_level
+    -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'loyalty_level') AS upk_loyalty_level,
+
+    _TABLE_SUFFIX as table_suffix
 
   FROM 
       ${ref('events_*')}

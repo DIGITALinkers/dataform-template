@@ -1,5 +1,5 @@
 config {
-    type: "incremental",
+    type: "table",
     schema: "reporting",
     name: "landing_page_performance",
     description: "A custom landing page performance report",

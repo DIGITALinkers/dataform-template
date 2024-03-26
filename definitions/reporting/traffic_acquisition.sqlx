@@ -1,5 +1,5 @@
 config {
-    type: "incremental",
+    type: "table",
     schema: "reporting",
     name: "traffic_acquisition",
     description: "A custom traffic acquisition report",

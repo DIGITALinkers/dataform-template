@@ -1,5 +1,5 @@
 config {
-    type: "incremental",
+    type: "table",
     schema: "reporting",
     name: "item_product_performance",
     description: "A custom item / product performance report",
