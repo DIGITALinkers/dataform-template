@@ -6,10 +6,16 @@ config {
     uniqueKey: ["unique_event_id"],
     bigquery: {
         partitionBy: "date_partition",
-        updatePartitionFilter: "event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+        updatePartitionFilter: "date_partition >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
     },
     tags: ['ga4']
 }
+
+/*
+The config parameter 'updatePartitionFilter' is used to limit the number of partitions that whill be scanned during the MERGE.
+It should always be greater than or equal to '${dataform.projectConfig.vars.incremental_days_refresh}', otherwise the MERGE would miss 
+several partitions from the data coming in, and the result table would contain duplicate rows.
+*/
 
 with ga4_events as (
   
