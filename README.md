@@ -17,7 +17,7 @@ Here are 10 simple steps to follow to setup a Dataform project:
  * BigQuery Data Viewer
  * BigQuery Job User
  * Secret Manager Secret Accessor
- * > click "Save". 
+   > click "Save". 
 5. In Github, create a new repository.
 6. In Github, click "Settings" > "Developer settings" > "Fine-grained tokens" > set Token name, expiration date, select the repository you created in step 5, and grant permissions: 
  * Administration - Read and write
@@ -25,7 +25,7 @@ Here are 10 simple steps to follow to setup a Dataform project:
  * Contents - Read and write
  * Deployments - Read-only
  * Metadata - Read-only
- * > click "Generate token".
+   > click "Generate token".
 7. In GCP, open the Secret Manager page > enable API > click "Create secret" > set name to "dataform" and paste GitHub developer token value to Secret Value field > click "Create Secret".
 8. Back in Dataform, click "Connect with Git" > copy paste from Github the step 5 repo's URL > set default branch name to "main" > select "dataform" Secret field > click "Create a link".
 9. Click "Create Development Workspace" > set "Workspace id"/
