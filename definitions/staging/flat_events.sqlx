@@ -1,6 +1,6 @@
 config {
     type: "incremental",
-    schema: "staging",
+    schema: "staging", 
     name: "flat_events",
     description: "Table of flattened GA4 events",
     uniqueKey: ["unique_event_id"],
@@ -51,8 +51,20 @@ with ga4_events as (
     -------------------------------------------------------------------------------------------
     -- EVENT PARAMETERS (event_params) --------------------------------------------------------
     -- event_params	(RECORD) A repeated record of the parameters associated with this event. --
-    -- Capture the specific nested keys of "event_params" into (epk_*) fields -----------------
+    -- Captures the specific nested keys of "event_params" into (epk_*) fields ----------------
     -------------------------------------------------------------------------------------------
+
+    /* 
+    Add, modify or delete the following event_params, according to your own source data by using the helpers functions. 
+    If you know the parameter's value type, use the getEventParam function and pass three arguments:
+      - The key (i.e. 'ga_session_id'). 
+      - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
+      - The column name: leave empty to use the parameter name.  
+    If you do not know the parameter's value type, use coalesceEventParam and only pass 2 arguments:
+      - The key 
+      - The column name: leave empty to use the parameter name. 
+    The query will return a column per event_param, named as 'epk_eventParamName'. 
+    */
 
     -- Basic session information
     ${helpers.getEventParam('ga_session_id','int')},
@@ -101,12 +113,24 @@ with ga4_events as (
     -- user_properties (RECORD)	A repeated record of user properties that you have set. -------
     -- Capture the specific nested keys of "user_properties" into (upk_*) fields --------------
     -------------------------------------------------------------------------------------------
-    
-    -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'visitor_status') AS upk_visitor_status,
-    -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'custom_client_id') AS upk_custom_client_id,
-    -- (SELECT value.string_value FROM UNNEST(user_properties) WHERE key = 'loyalty_level') AS upk_loyalty_level,
 
-    _TABLE_SUFFIX as table_suffix
+    /* 
+    Add, modify or delete the following user_properties, according to your own source data by using the helpers functions. 
+    If you know the property's value type, use the getUserProperty function and pass three arguments:
+      - The key (i.e. 'visitor_status'). 
+      - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
+      - The column name: leave empty to use the property name.  
+    If you do not know the property's value type, use coalesceUserProperty and only pass 2 arguments:
+      - The key 
+      - The column name: leave empty to use the property name. 
+    The query will return a column per user_property, named as 'epk_userPropertyName'. 
+    */
+
+    -- ${helpers.getUserProperty('visitor_status')},
+    -- ${helpers.getUserProperty('custom_client_id')},
+    -- ${helpers.getUserProperty('loyalty_level')},
+
+    _TABLE_SUFFIX as table_suffix -- Added in the select statement for downstream use in incremental refreshes. 
 
   FROM 
       ${ref('events_*')}

@@ -11,23 +11,40 @@ config {
     tags: ['ga4']
 }
 
+
 SELECT
   unique_event_id,
   unique_session_id,
   event_date,
   date_partition,
   event_name,
-  ecommerce.transaction_id,
-  -- items (RECORD) We flatten this repeated record of information about items included in an event, thanks to the unnest + crossjoin in the FROM clause.
+  ecommerce.transaction_id,  
+
+  -- items (RECORD) We flatten this repeated record of information about items included in an event, thanks to the unnest + crossjoin in the FROM clause. 
   -- The resulting table will have one line per item, rather than per event (some events will be multiplied).
-  items,
+  
+  items,  
+  
   -------------------------------------------------------------------------------------------
   -- ITEMS PARAMS (item_params) ------------------------------------------------------
   -- item_params (RECORD)	A repeated record of item params that you have set. -------
-  -- Capture the specific nested keys of "user_properties" into (ipk_*) fields --------------
+  -- Capture the specific nested keys of "item_params" into (ipk_*) fields --------------
   -------------------------------------------------------------------------------------------
-  --(SELECT value.string_value FROM UNNEST(item_params) where key = 'item_parameter_string') as ipk_item_parameter_string, --change key to select another parameter
-  --(SELECT value.int_value FROM UNNEST(item_params) where key = 'item_parameter_int') as ipk_item_parameter_int --change key to select another parameter
+
+    /* 
+    Add, modify or delete the following item_params, according to your own source data by using the helpers functions. 
+    If you know the parameter's value type, use the getItemParam function and pass three arguments:
+    - The key.
+    - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
+    - The column name: leave empty to use the parameter name.  
+    If you do not know the parameter's value type, use coalesceItemParam and only pass 2 arguments:
+    - The key 
+    - The column name: leave empty to use the parameter name. 
+    The query will return a column per item_param, named as 'ipk_itemParamName'. 
+    */
+
+  -- ${helpers.getItemParam('item_param_key_string')},
+  -- ${helpers.getItemParam('item_param_key_int','int')},
 
 FROM
   ${ref("flat_events")},
