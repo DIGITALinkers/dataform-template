@@ -10,8 +10,8 @@ This Dataform project shows:
 
 Here are 10 simple steps to follow to setup a Dataform project: 
 1. In GCP's left menu select BigQuery > Dataform.
-2. Enable the Dataform API.
-3. Click "Create repository" > set name and location.
+2. Enable the Dataform API (if the API is already enabled, skip to step 3).
+3. Click "Create repository" > set repository ID (a name of your choosing) and region, and select your default service account.
 4. Once the repo is created, copy the service account email > in GCP's left menu, select IAM and Admin > IAM > enable checkbox "Include Google-provided role grants" > click pencil (edit) > add roles: 
  * BigQuery Data Editor
  * BigQuery Data Viewer
