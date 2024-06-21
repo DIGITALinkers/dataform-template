@@ -1,0 +1,60 @@
+config {
+    type: "incremental",
+    schema: "staging",
+    name: "flat_items",
+    description: "Table of flattened GA4 items",
+    uniqueKey: ["unique_event_id"],
+    bigquery: {
+        partitionBy: "date_partition",
+        updatePartitionFilter: "event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+
+SELECT
+  unique_event_id,
+  unique_session_id,
+  event_date,
+  date_partition,
+  event_name,
+  ecommerce.transaction_id,  
+
+  -- items (RECORD) We flatten this repeated record of information about items included in an event, thanks to the unnest + crossjoin in the FROM clause. 
+  -- The resulting table will have one line per item, rather than per event (some events will be multiplied).
+  
+  items,  
+  
+  -------------------------------------------------------------------------------------------
+  -- ITEMS PARAMS (item_params) ------------------------------------------------------
+  -- item_params (RECORD)	A repeated record of item params that you have set. -------
+  -- Capture the specific nested keys of "item_params" into (ipk_*) fields --------------
+  -------------------------------------------------------------------------------------------
+
+    /* 
+    Add, modify or delete the following item_params, according to your own source data by using the helpers functions. 
+    If you know the parameter's value type, use the getItemParam function and pass three arguments:
+    - The key.
+    - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
+    - The column name: leave empty to use the parameter name.  
+    If you do not know the parameter's value type, use coalesceItemParam and only pass 2 arguments:
+    - The key 
+    - The column name: leave empty to use the parameter name. 
+    The query will return a column per item_param, named as 'ipk_itemParamName'. 
+    */
+
+  -- ${helpers.getItemParam('item_param_key_string')},
+  -- ${helpers.getItemParam('item_param_key_int','int')},
+
+FROM
+  ${ref("flat_events")},
+  UNNEST(items) AS items
+
+WHERE 1=1
+
+  -- for incremental runs, we only want to run the query on the past 3 days. For that we use the incremental() built-in function
+  -- combined with the when() built-in function and with a variable "incremental_days_refresh", defined in dataform.json.
+  
+  ${ when(incremental(),
+    `AND PARSE_DATE("%Y%m%d", table_suffix) >= DATE_SUB(CURRENT_DATE(), INTERVAL CAST(${dataform.projectConfig.vars.incremental_days_refresh} AS INT64) DAY)`
+  )}

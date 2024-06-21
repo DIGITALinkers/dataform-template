@@ -1,0 +1,78 @@
+config {
+    type: "table",
+    schema: "reporting",
+    name: "page_performance",
+    description: "A custom page performance report",
+    bigquery: {
+        updatePartitionFilter: "date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+WITH
+  prep AS (
+  SELECT
+    user_pseudo_id,
+    unique_session_id,
+    date_partition AS date,
+    event_timestamp,
+    event_name,
+    epk_page_location AS page_path,
+    epk_page_title AS page_title,
+    epk_entrances AS entrances,
+    ecommerce.purchase_revenue
+  FROM
+    ${ref("flat_events")}
+  ),
+
+  page_views AS (
+  SELECT
+    user_pseudo_id,
+    unique_session_id,
+    date,
+    page_path,
+    page_title,
+    entrances,
+    ROW_NUMBER() OVER (PARTITION BY unique_session_id ORDER BY event_timestamp DESC) AS page_view_descending
+  FROM
+    prep
+  WHERE
+    event_name = 'page_view'),
+
+  conversions AS (
+  SELECT
+    unique_session_id,
+    date,
+    event_name,
+    page_path,
+    page_title,
+    purchase_revenue
+  FROM
+    prep
+  WHERE
+    event_name = 'purchase')
+
+SELECT
+  --page_views.date,
+  page_views.page_path,
+  page_views.page_title,
+  COUNT(page_views.page_path) AS total_pageviews,
+  COUNT(DISTINCT user_pseudo_id) AS users,
+  COUNT(page_views.page_path) / COUNT(DISTINCT user_pseudo_id) AS views_per_user,
+  COUNT(DISTINCT page_views.unique_session_id) AS unique_pageviews,
+  COUNT(CASE WHEN entrances = 1 THEN page_views.unique_session_id END) AS entrances,
+  COUNT(CASE WHEN page_view_descending = 1 THEN page_views.unique_session_id END) AS exits,
+  COUNT(conversions.event_name) AS conversions,
+  SUM(purchase_revenue) AS purchase_revenue
+FROM
+  page_views
+LEFT JOIN
+  conversions
+ON
+  page_views.date = conversions.date
+  AND page_views.page_path = conversions.page_path
+  AND page_views.page_title = conversions.page_title
+GROUP BY
+  --page_views.date,
+  page_title,
+  page_path

@@ -1,0 +1,168 @@
+config {
+    type: "incremental",
+    schema: "staging", 
+    name: "flat_events",
+    description: "Table of flattened GA4 events",
+    uniqueKey: ["unique_event_id"],
+    bigquery: {
+        partitionBy: "date_partition",
+        updatePartitionFilter: "date_partition >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+/*
+The config parameter 'updatePartitionFilter' is used to limit the number of partitions that whill be scanned during the MERGE.
+It should always be greater than or equal to '${dataform.projectConfig.vars.incremental_days_refresh}', otherwise the MERGE would miss 
+several partitions from the data coming in, and the result table would contain duplicate rows.
+*/
+
+with ga4_events as (
+  
+  SELECT 
+
+    -- Standard Firebase data schema fields and object below  
+
+    event_date,
+    PARSE_DATE('%Y%m%d', event_date) as date_partition,  -- (DATE) Integer reformatted to a date. 
+    event_timestamp,  -- (INTEGER) The time (in microseconds, UTC) at which the event was logged on the client.
+    event_previous_timestamp,  -- (INTEGER) The time (in microseconds, UTC) at which the previous event was logged on the client.
+    event_name,  -- (STRING) The name of the event.
+    event_value_in_usd,  -- (FLOAT) The currency-converted value (in USD) of the event's "value" parameter.
+    event_bundle_sequence_id,  -- (INTEGER) The sequential ID of the bundle in which these events were uploaded.
+    event_server_timestamp_offset,  -- (INTEGER) Timestamp offset between collection time and upload time in micros.
+    -- is_active_user, -- (BOOLEAN) Whether the user was active (True) or inactive (False) at any point in the calendar day. Included in only the daily tables (events_YYYYMMDD).
+    user_id,  -- (STRING) The user ID assigned to a user.
+    user_pseudo_id,  -- (STRING) The pseudonymous id (e.g., app instance ID) for the user.
+    user_first_touch_timestamp,  -- (INTEGER) The time (in microseconds) at which the user first opened the app or visited the site.
+    privacy_info,	-- (RECORD) The following fields are based on the consent status of your users when consent mode is enabled.
+    user_ltv,  -- (RECORD) A record of Lifetime Value information about the user. This field is not populated in intraday tables.
+    device,  -- (RECORD) A record of device information from which the event originated.
+    geo,  -- (RECORD) A record of information about the geographic location where the event was initiated.
+    app_info,  -- (RECORD) A record of information on the app in which the event was initiated.
+    -- collected_traffic_source, -- (RECORD) A record of the traffic source data that was collected with the event.
+    traffic_source,  -- (RECORD) A record of information about the traffic source that first acquired the user. This record is not populated in intraday tables.
+    stream_id,  -- (STRING) The numeric ID of the data stream from which the event originated.
+    platform,  -- (STRING) The data stream platform (Web, IOS or Android) from which the event originated.
+    event_dimensions,  --	(RECORD)
+    ecommerce,  -- (RECORD) A record of information about about any ecommerce events that have been setup on a website or app.
+    items,  -- (RECORD) A record of information about items included in an event. It is repeated for each item.
+
+    -------------------------------------------------------------------------------------------
+    -- EVENT PARAMETERS (event_params) --------------------------------------------------------
+    -- event_params	(RECORD) A repeated record of the parameters associated with this event. --
+    -- Captures the specific nested keys of "event_params" into (epk_*) fields ----------------
+    -------------------------------------------------------------------------------------------
+
+    /* 
+    Add, modify or delete the following event_params, according to your own source data by using the helpers functions. 
+    If you know the parameter's value type, use the getEventParam function and pass three arguments:
+      - The key (i.e. 'ga_session_id'). 
+      - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
+      - The column name: leave empty to use the parameter name.  
+    If you do not know the parameter's value type, use coalesceEventParam and only pass 2 arguments:
+      - The key 
+      - The column name: leave empty to use the parameter name. 
+    The query will return a column per event_param, named as 'epk_eventParamName'. 
+    */
+
+    -- Basic session information
+    ${helpers.getEventParam('ga_session_id','int')},
+    ${helpers.getEventParam('ga_session_number','int')},
+
+    -- Session engagement data
+    ${helpers.coalesceEventParam('session_engaged')},
+    ${helpers.getEventParam('engaged_session_event','int')},
+    ${helpers.getEventParam('engagement_time_msec','int')},
+
+    -- Session traffic sources data
+    ${helpers.getEventParam('medium')},
+    ${helpers.getEventParam('source')},
+    ${helpers.getEventParam('campaign')},
+
+    -- Basic page information
+    ${helpers.getEventParam('page_title')},
+    ${helpers.getEventParam('page_location')},
+    ${helpers.getEventParam('entrances','int')},
+
+    -- Scroll interactions data
+    ${helpers.getEventParam('percent_scrolled','int')},
+
+    -- Outbound clicks data
+    ${helpers.getEventParam('link_domain')},
+    ${helpers.getEventParam('link_url')},
+    ${helpers.getEventParam('outbound')},
+
+    -- Site search data
+    ${helpers.getEventParam('search_term')},
+
+    -- Video engagement data
+    ${helpers.getEventParam('video_provider')},
+    ${helpers.getEventParam('video_title')},
+    ${helpers.getEventParam('video_url')},
+    ${helpers.getEventParam('video_duration','int')},
+    ${helpers.getEventParam('video_percent','int')},
+
+    -- File download data
+    ${helpers.getEventParam('file_extension')},
+    ${helpers.getEventParam('file_name')},
+    ${helpers.getEventParam('link_text')},
+
+    -------------------------------------------------------------------------------------------
+    -- USER PROPERTIES (user_properties) ------------------------------------------------------
+    -- user_properties (RECORD)	A repeated record of user properties that you have set. -------
+    -- Capture the specific nested keys of "user_properties" into (upk_*) fields --------------
+    -------------------------------------------------------------------------------------------
+
+    /* 
+    Add, modify or delete the following user_properties, according to your own source data by using the helpers functions. 
+    If you know the property's value type, use the getUserProperty function and pass three arguments:
+      - The key (i.e. 'visitor_status'). 
+      - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
+      - The column name: leave empty to use the property name.  
+    If you do not know the property's value type, use coalesceUserProperty and only pass 2 arguments:
+      - The key 
+      - The column name: leave empty to use the property name. 
+    The query will return a column per user_property, named as 'epk_userPropertyName'. 
+    */
+
+    -- ${helpers.getUserProperty('visitor_status')},
+    -- ${helpers.getUserProperty('custom_client_id')},
+    -- ${helpers.getUserProperty('loyalty_level')},
+
+    _TABLE_SUFFIX as table_suffix -- Added in the select statement for downstream use in incremental refreshes. 
+
+  FROM 
+      ${ref('events_*')}
+
+  WHERE 1=1
+
+    -- for incremental runs, we only want to run the query on the past 3 days. For that we use the incremental() built-in function
+    -- combined with the when() built-in function and with a variable "incremental_days_refresh", defined in dataform.json.
+    
+    ${ when(incremental(),
+      `AND PARSE_DATE("%Y%m%d", _TABLE_SUFFIX) >= DATE_SUB(CURRENT_DATE(), INTERVAL CAST(${dataform.projectConfig.vars.incremental_days_refresh} AS INT64) DAY)`
+    )}
+
+
+)
+
+SELECT
+  CONCAT( 
+    stream_id, '_', 
+    event_date, '_',
+    user_pseudo_id, '_',
+    epk_ga_session_id, '_',
+    event_name, '_',
+    event_timestamp, '_',
+    ROW_NUMBER() OVER(PARTITION BY 
+      stream_id, 
+      event_date, 
+      user_pseudo_id, 
+      epk_ga_session_id, 
+      event_name, 
+      event_timestamp)
+  ) AS unique_event_id,
+  CONCAT(user_pseudo_id, epk_ga_session_id) AS unique_session_id,
+  *
+FROM ga4_events

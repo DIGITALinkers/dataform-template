@@ -1,0 +1,97 @@
+config {
+    type: "table",
+    schema: "reporting",
+    name: "user_acquisition",
+    description: "A custom user acquisition report",
+    bigquery: {
+        updatePartitionFilter: "date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+WITH
+  prep AS (
+  SELECT
+    MIN(date_partition) AS date,
+    user_pseudo_id,
+    COALESCE(traffic_source.source,'(direct)') AS source,
+    COALESCE(traffic_source.medium,'(none)') AS medium,
+    COALESCE(traffic_source.name,'(not set)') AS campaign,
+    unique_session_id,
+    MAX(CASE WHEN event_name = 'session_start' THEN epk_ga_session_number ELSE NULL END) AS session_number,
+    MAX(epk_session_engaged) AS session_engaged,
+    MAX(epk_engagement_time_msec) AS engagement_time_msec,
+    COUNT(event_name) AS event_count,
+    -- change event_name to the event(s) you want to count
+    COUNTIF(event_name = 'click') AS specific_event_count,
+    -- change event_name to the conversion event(s) you want to count
+    COUNTIF(event_name = 'purchase') AS conversions,
+    SUM(ecommerce.purchase_revenue) AS total_revenue
+  FROM
+    ${ref("flat_events")}
+  GROUP BY
+    user_pseudo_id,
+    medium,
+    source,
+    campaign,
+    unique_session_id)
+
+SELECT
+  date,
+  CASE
+    WHEN source = '(direct)' AND (medium IN ('(not set)', '(none)')) THEN 'Direct'
+    WHEN REGEXP_CONTAINS(campaign, 'cross-network') THEN 'Cross-network'
+    WHEN (REGEXP_CONTAINS(source,'alibaba|amazon|google shopping|shopify|etsy|ebay|stripe|walmart') OR REGEXP_CONTAINS(campaign, '^(.*(([^a-df-z]|^)shop|shopping).*)$')) AND REGEXP_CONTAINS(medium, '^(.*cp.*|ppc|paid.*)$') THEN 'Paid Shopping'
+    WHEN REGEXP_CONTAINS(source,'baidu|bing|duckduckgo|ecosia|google|yahoo|yandex')
+  AND REGEXP_CONTAINS(medium,'^(.*cp.*|ppc|paid.*)$') THEN 'Paid Search'
+    WHEN REGEXP_CONTAINS(source,'badoo|facebook|fb|instagram|linkedin|pinterest|tiktok|twitter|whatsapp') AND REGEXP_CONTAINS(medium,'^(.*cp.*|ppc|paid.*)$') THEN 'Paid Social'
+    WHEN REGEXP_CONTAINS(source,'dailymotion|disneyplus|netflix|youtube|vimeo|twitch|vimeo|youtube')
+  AND REGEXP_CONTAINS(medium,'^(.*cp.*|ppc|paid.*)$') THEN 'Paid Video'
+    WHEN medium IN ('display', 'banner', 'expandable', 'interstitial', 'cpm') THEN 'Display'
+    WHEN REGEXP_CONTAINS(source,'alibaba|amazon|google shopping|shopify|etsy|ebay|stripe|walmart')
+  OR REGEXP_CONTAINS(campaign, '^(.*(([^a-df-z]|^)shop|shopping).*)$') THEN 'Organic Shopping'
+    WHEN REGEXP_CONTAINS(source,'badoo|facebook|fb|instagram|linkedin|pinterest|tiktok|twitter|whatsapp') OR medium IN ('social', 'social-network', 'social-media', 'sm', 'social network', 'social media') THEN 'Organic Social'
+    WHEN REGEXP_CONTAINS(source,'dailymotion|disneyplus|netflix|youtube|vimeo|twitch|vimeo|youtube')
+  OR REGEXP_CONTAINS(medium,'^(.*video.*)$') THEN 'Organic Video'
+    WHEN REGEXP_CONTAINS(source,'baidu|bing|duckduckgo|ecosia|google|yahoo|yandex') OR medium = 'organic' THEN 'Organic Search'
+    WHEN REGEXP_CONTAINS(source,'email|e-mail|e_mail|e mail')
+  OR REGEXP_CONTAINS(medium,'email|e-mail|e_mail|e mail') THEN 'Email'
+    WHEN medium = 'affiliate' THEN 'Affiliates'
+    WHEN medium = 'referral' THEN 'Referral'
+    WHEN medium = 'audio' THEN 'Audio'
+    WHEN medium = 'sms' THEN 'SMS'
+    WHEN medium LIKE '%push' OR REGEXP_CONTAINS(medium,'mobile|notification') THEN 'Mobile Push Notifications'
+  ELSE
+  'Unassigned'
+END
+  AS first_user_default_channel_group,
+  --source as first_user_source,
+  --medium as first_user_medium,
+  --concat(source,' / ',medium) as first_user_source_medium,
+  --campaign as first_user_campaign,
+  COUNT(DISTINCT user_pseudo_id) AS total_users,
+  COUNT(DISTINCT CASE WHEN engagement_time_msec > 0 OR session_engaged = '1' THEN user_pseudo_id END) AS active_users,
+  COUNT(DISTINCT CASE WHEN session_number = 1 THEN user_pseudo_id END) AS new_users,
+  SAFE_DIVIDE(COUNT(DISTINCT CASE WHEN session_number = 1 THEN user_pseudo_id END),COUNT(DISTINCT user_pseudo_id)) AS percentage_new_users,
+  COUNT(DISTINCT unique_session_id) AS sessions,
+  COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END) AS engaged_sessions,
+  SAFE_DIVIDE(COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END),COUNT(DISTINCT unique_session_id)) AS engagement_rate,
+  SAFE_DIVIDE(COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END),COUNT(DISTINCT user_pseudo_id)) AS engaged_sessions_per_user,
+  SAFE_DIVIDE(SUM(engagement_time_msec/1000),COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END)) AS average_engagement_time_seconds,
+  SAFE_DIVIDE(SUM(event_count),COUNT(DISTINCT user_pseudo_id)) AS events_per_user,
+  SUM(event_count) AS total_event_count,
+  SUM(specific_event_count) AS specific_event_count,
+  SUM(conversions) AS conversions,
+  SAFE_DIVIDE(SUM(conversions),COUNT(DISTINCT user_pseudo_id)) AS user_conversion_rate,
+  IFNULL(SUM(total_revenue),0) AS total_revenue
+FROM
+  prep
+GROUP BY
+  date,
+  first_user_default_channel_group
+  --,first_user_source
+  --,first_user_medium
+  --,first_user_source_medium
+  --,first_user_campaign
+ORDER BY
+  total_users DESC

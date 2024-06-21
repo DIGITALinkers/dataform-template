@@ -1,0 +1,83 @@
+config {
+    type: "table",
+    schema: "reporting",
+    name: "tech_performance",
+    description: "A custom tech (device, OS & browser) performance report",
+    bigquery: {
+        updatePartitionFilter: "date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+    },
+    tags: ['ga4']
+}
+
+WITH
+  prep AS (
+  SELECT
+    date_partition AS date,
+    user_pseudo_id,
+    unique_session_id,
+    device.category,
+    device.operating_system,
+    device.operating_system_version,
+    device.web_info.browser,
+    device.web_info.browser_version,
+    device.mobile_brand_name,
+    device.mobile_model_name,
+    device.mobile_marketing_name,
+    device.mobile_os_hardware_model,
+    MAX(epk_ga_session_number) AS session_number,
+    MAX(epk_session_engaged) AS session_engaged,
+    SUM(epk_engagement_time_msec) AS engagement_time_msec,
+    -- change event_name to the event(s) you want to count
+    COUNTIF(event_name = 'click') AS event_count,
+    -- change event_name to the conversion event(s) you want to count
+    COUNTIF(event_name = 'purchase') AS conversions,
+    SUM(ecommerce.purchase_revenue) AS total_revenue
+  FROM
+    ${ref("flat_events")}
+  GROUP BY
+    date,
+    user_pseudo_id,
+    unique_session_id,
+    device.category,
+    device.operating_system,
+    device.operating_system_version,
+    device.web_info.browser,
+    device.web_info.browser_version,
+    device.mobile_brand_name,
+    device.mobile_model_name,
+    device.mobile_marketing_name,
+    device.mobile_os_hardware_model)
+
+SELECT
+  date,
+  --category,
+  --operating_system,
+  --operating_system_version,
+  browser,
+  --browser_version,
+  --mobile_brand_name,
+  --mobile_model_name,
+  --mobile_marketing_name,
+  --mobile_os_hardware_model,
+  COUNT(DISTINCT user_pseudo_id) AS users,
+  COUNT(DISTINCT CASE WHEN session_number = 1 THEN user_pseudo_id ELSE NULL END) AS new_users,
+  COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN CONCAT(unique_session_id) END) AS engaged_sessions,
+  SAFE_DIVIDE(COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END),COUNT(DISTINCT unique_session_id)) AS engagement_rate,
+  SAFE_DIVIDE(COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END),COUNT(DISTINCT user_pseudo_id)) AS engaged_sessions_per_user,
+  SAFE_DIVIDE(SUM(engagement_time_msec/1000),COUNT(DISTINCT CASE WHEN session_engaged = '1' THEN unique_session_id END)) AS average_engagement_time_seconds,
+  SUM(event_count) AS event_count,
+  SUM(conversions) AS conversions,
+  IFNULL(SUM(total_revenue),0) AS total_revenue
+FROM
+  prep
+GROUP BY
+  date,
+  --category,
+  --operating_system,
+  --operating_system_version,
+  browser
+  --browser_version,
+  --mobile_brand_name,
+  --mobile_model_name,
+  --mobile_marketing_name,
+  --mobile_os_hardware_model

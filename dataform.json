@@ -1,8 +1,12 @@
 {
-  "defaultSchema": "dataform",
-  "assertionSchema": "dataform_assertions",
   "warehouse": "bigquery",
   "defaultDatabase": "projet-pole-dl-dataform",
-  "defaultLocation": "EU"
+  "defaultSchema": "dataform",
+  "assertionSchema": "dataform_assertions",
+  "defaultLocation": "EU",
+  "vars" : {
+    "executionSetting":"prod",
+    "incremental_days_refresh":"3"
+  }
 }
     

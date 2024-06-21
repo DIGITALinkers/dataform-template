@@ -1,0 +1,20 @@
+config {
+    type: "assertion",
+}
+
+js {
+    const MAX_DELAY = 1142;
+}
+
+WITH max_date AS (
+    SELECT
+        DATE_DIFF(CURRENT_DATE(), MAX(date_partition), DAY) as diff
+    FROM
+    ${ref("flat_events")}
+)
+
+SELECT
+    diff
+FROM
+    max_date
+where diff > ${MAX_DELAY}
