@@ -29,17 +29,20 @@ const getEventParam = (
 // The getEventParam function returns a subquery that unnests event_params. 
 // It takes 3 arguments : the event param name, the event param type (by default, "string" type) and the column name (by default, the event param name). 
 
+
 const coalesceEventParam = (param, columnName = null) => {
     const paramName = columnName ? columnName : param;
     return `
-    COALESCE((SELECT value.string_value FROM UNNEST(event_params) WHERE key ='${param}') AS epk_${param}, 
-    CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key ='${param}') AS STRING)) AS epk_${param},
-    CAST((SELECT value.float_value FROM UNNEST(event_params) WHERE key ='${param}') AS STRING)) AS epk_${param},
-    CAST((SELECT value.double_value FROM UNNEST(event_params) WHERE key ='${param}') AS STRING)) AS epk_${param})`
+    (SELECT COALESCE(value.string_value, 
+    CAST(value.int_value AS STRING),
+    CAST(value.float_value AS STRING),
+    CAST(value.double_value AS STRING))
+    FROM UNNEST(event_params) WHERE key ='${param}') AS epk_${param}`
 }; 
 
 // The coalesceEventParam function returns a subquery that unnests event_params when the value's data type is unknown. 
 // It takes the same arguments, minus the event param type (since we are trying to find it). 
+
 
 const getUserProperty = (
   userPropertyName,
@@ -72,17 +75,20 @@ const getUserProperty = (
 // The getUserProperty function returns a subquery that unnests user_properties. 
 // It takes 3 arguments : the user property name, the user property type (by default, "string" type) and the column name (by default, the user property name).  
 
+
 const coalesceUserProperty = (property, columnName = null) => {
     const propertyName = columnName ? columnName : property;
     return `
-    COALESCE((SELECT value.string_value FROM UNNEST(user_properties) WHERE key ='${property}') AS upk_${property}, 
-    CAST((SELECT value.int_value FROM UNNEST(user_properties) WHERE key ='${property}') AS STRING)) AS upk_${property},
-    CAST((SELECT value.float_value FROM UNNEST(user_properties) WHERE key ='${property}') AS STRING)) AS upk_${property},
-    CAST((SELECT value.double_value FROM UNNEST(user_properties) WHERE key ='${property}') AS STRING)) AS upk_${property})`
+    (SELECT COALESCE(value.string_value, 
+    CAST(value.int_value AS STRING),
+    CAST(value.float_value AS STRING),
+    CAST(value.double_value AS STRING))
+    FROM UNNEST(user_properties) WHERE key ='${property}') AS upk_${property}`
 }; 
 
 // The coalesceUserProperty function returns a subquery that unnests user_properties when the value's data type is unknown. 
 // It takes the same arguments, minus the user property type (since we are trying to find it). 
+
 
 const getItemParam = (
   itemParamName,
@@ -115,18 +121,54 @@ const getItemParam = (
 // The getItemParam function returns a subquery that unnests item_params. 
 // It takes 3 arguments : the item param name, the item param type (by default, "string" type) and the column name (by default, the item param name). 
 
+
 const coalesceItemParam = (param, columnName = null) => {
     const paramName = columnName ? columnName : param;
     return `
-    COALESCE((SELECT value.string_value FROM UNNEST(item_params) WHERE key ='${param}') AS epk_${param}, 
-    CAST((SELECT value.int_value FROM UNNEST(item_params) WHERE key ='${param}') AS STRING)) AS epk_${param},
-    CAST((SELECT value.float_value FROM UNNEST(item_params) WHERE key ='${param}') AS STRING)) AS epk_${param},
-    CAST((SELECT value.double_value FROM UNNEST(item_params) WHERE key ='${param}') AS STRING)) AS epk_${param})`
+    (SELECT COALESCE(value.string_value, 
+    CAST(value.int_value AS STRING),
+    CAST(value.float_value AS STRING),
+    CAST(value.double_value AS STRING))
+    FROM UNNEST(item_params) WHERE key ='${param}') AS ipk_${param}`
 }; 
 
 // The coalesceItemParam function returns a subquery that unnests item_params when the value's data type is unknown. 
 // It takes the same arguments, minus the item param type (since we are trying to find it). 
 
-module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam };
+
+
+const channelGrouping = (source,medium,campaign) => {
+    return `
+    CASE
+      WHEN ${source} = '(direct)' AND (${medium} IN ('(not set)', '(none)')) THEN 'Direct'
+      WHEN REGEXP_CONTAINS(${campaign}, 'cross-network') THEN 'Cross-network'
+      WHEN (REGEXP_CONTAINS(${source},'alibaba|amazon|google shopping|shopify|etsy|ebay|stripe|walmart') OR REGEXP_CONTAINS(${campaign}, '^(.*(([^a-df-z]|^)shop|shopping).*)$')) AND REGEXP_CONTAINS(${medium}, '^(.*cp.*|ppc|paid.*)$') THEN 'Paid Shopping'
+      WHEN REGEXP_CONTAINS(${source},'baidu|bing|duckduckgo|ecosia|google|yahoo|yandex')
+    AND REGEXP_CONTAINS(${medium},'^(.*cp.*|ppc|paid.*)$') THEN 'Paid Search'
+      WHEN REGEXP_CONTAINS(${source},'badoo|facebook|fb|instagram|linkedin|pinterest|tiktok|twitter|whatsapp') AND REGEXP_CONTAINS(${medium},'^(.*cp.*|ppc|paid.*)$') THEN 'Paid Social'
+      WHEN REGEXP_CONTAINS(${source},'dailymotion|disneyplus|netflix|youtube|vimeo|twitch|vimeo|youtube')
+    AND REGEXP_CONTAINS(${medium},'^(.*cp.*|ppc|paid.*)$') THEN 'Paid Video'
+      WHEN ${medium} IN ('display', 'banner', 'expandable', 'interstitial', 'cpm') THEN 'Display'
+      WHEN REGEXP_CONTAINS(${source},'alibaba|amazon|google shopping|shopify|etsy|ebay|stripe|walmart')
+    OR REGEXP_CONTAINS(${campaign}, '^(.*(([^a-df-z]|^)shop|shopping).*)$') THEN 'Organic Shopping'
+      WHEN REGEXP_CONTAINS(${source},'badoo|facebook|fb|instagram|linkedin|pinterest|tiktok|twitter|whatsapp') OR ${medium} IN ('social', 'social-network', 'social-media', 'sm', 'social network', 'social media') THEN 'Organic Social'
+      WHEN REGEXP_CONTAINS(${source},'dailymotion|disneyplus|netflix|youtube|vimeo|twitch|vimeo|youtube')
+    OR REGEXP_CONTAINS(${medium},'^(.*video.*)$') THEN 'Organic Video'
+      WHEN REGEXP_CONTAINS(${source},'baidu|bing|duckduckgo|ecosia|google|yahoo|yandex') OR ${medium} = 'organic' THEN 'Organic Search'
+      WHEN REGEXP_CONTAINS(${source},'email|e-mail|e_mail|e mail')
+    OR REGEXP_CONTAINS(${medium},'email|e-mail|e_mail|e mail') THEN 'Email'
+      WHEN ${medium} = 'affiliate' THEN 'Affiliates'
+      WHEN ${medium} = 'referral' THEN 'Referral'
+      WHEN ${medium} = 'audio' THEN 'Audio'
+      WHEN ${medium} = 'sms' THEN 'SMS'
+      WHEN ${medium} LIKE '%push' OR REGEXP_CONTAINS(${medium},'mobile|notification') THEN 'Mobile Push Notifications'
+    ELSE
+    'Unassigned'
+    END`
+  }
+
+
+
+module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam, channelGrouping };
 
 // Functions must always be exported in order to be used in other files. 
