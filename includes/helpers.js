@@ -1,3 +1,6 @@
+// The getEventParam function returns a subquery that unnests event_params. 
+// It takes 3 arguments : the event param name, the event param type (by default, "string" type) and the column name (by default, the event param name). 
+
 const getEventParam = (
   eventParamName,
   eventParamType = "string",
@@ -26,9 +29,9 @@ const getEventParam = (
   }`;
 };  
 
-// The getEventParam function returns a subquery that unnests event_params. 
-// It takes 3 arguments : the event param name, the event param type (by default, "string" type) and the column name (by default, the event param name). 
 
+// The coalesceEventParam function returns a subquery that unnests event_params when the value's data type is unknown. 
+// It takes the same arguments, minus the event param type (since we are trying to find it). 
 
 const coalesceEventParam = (param, columnName = null) => {
     const paramName = columnName ? columnName : param;
@@ -40,9 +43,9 @@ const coalesceEventParam = (param, columnName = null) => {
     FROM UNNEST(event_params) WHERE key ='${param}') AS epk_${param}`
 }; 
 
-// The coalesceEventParam function returns a subquery that unnests event_params when the value's data type is unknown. 
-// It takes the same arguments, minus the event param type (since we are trying to find it). 
 
+// The getUserProperty function returns a subquery that unnests user_properties. 
+// It takes 3 arguments : the user property name, the user property type (by default, "string" type) and the column name (by default, the user property name).  
 
 const getUserProperty = (
   userPropertyName,
@@ -72,9 +75,9 @@ const getUserProperty = (
   }`;
 };  
 
-// The getUserProperty function returns a subquery that unnests user_properties. 
-// It takes 3 arguments : the user property name, the user property type (by default, "string" type) and the column name (by default, the user property name).  
 
+// The coalesceUserProperty function returns a subquery that unnests user_properties when the value's data type is unknown. 
+// It takes the same arguments, minus the user property type (since we are trying to find it). 
 
 const coalesceUserProperty = (property, columnName = null) => {
     const propertyName = columnName ? columnName : property;
@@ -86,9 +89,9 @@ const coalesceUserProperty = (property, columnName = null) => {
     FROM UNNEST(user_properties) WHERE key ='${property}') AS upk_${property}`
 }; 
 
-// The coalesceUserProperty function returns a subquery that unnests user_properties when the value's data type is unknown. 
-// It takes the same arguments, minus the user property type (since we are trying to find it). 
 
+// The getItemParam function returns a subquery that unnests item_params. 
+// It takes 3 arguments : the item param name, the item param type (by default, "string" type) and the column name (by default, the item param name). 
 
 const getItemParam = (
   itemParamName,
@@ -118,9 +121,9 @@ const getItemParam = (
   }`;
 };  
 
-// The getItemParam function returns a subquery that unnests item_params. 
-// It takes 3 arguments : the item param name, the item param type (by default, "string" type) and the column name (by default, the item param name). 
 
+// The coalesceItemParam function returns a subquery that unnests item_params when the value's data type is unknown. 
+// It takes the same arguments, minus the item param type (since we are trying to find it). 
 
 const coalesceItemParam = (param, columnName = null) => {
     const paramName = columnName ? columnName : param;
@@ -132,10 +135,10 @@ const coalesceItemParam = (param, columnName = null) => {
     FROM UNNEST(item_params) WHERE key ='${param}') AS ipk_${param}`
 }; 
 
-// The coalesceItemParam function returns a subquery that unnests item_params when the value's data type is unknown. 
-// It takes the same arguments, minus the item param type (since we are trying to find it). 
 
-
+// The channelGrouping function returns a CASE statement that maps traffic source data into standard channel groupings.
+// It takes source, medium, and campaign fields as arguments and uses regex logic to classify into Paid, Organic, and other channels.
+// This logic is modeled after GA4's default channel grouping system.
 
 const channelGrouping = (source,medium,campaign) => {
     return `
@@ -165,10 +168,25 @@ const channelGrouping = (source,medium,campaign) => {
     ELSE
     'Unassigned'
     END`
-  }
+};
 
 
+// The eventFlagColumns function generates one flag and one count column per event name.
+// Each flag column is 1 if the event occurred in the session/user, 0 otherwise.
+// Each count column gives the distinct number of times the event occurred, based on a unique event ID field.
 
-module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam, channelGrouping };
+const eventFlagColumns = (eventNames) => {
+  return eventNames
+    .map(
+      (event) => `
+      MAX(CASE WHEN event_name = '${event}' THEN 1 ELSE 0 END) AS has_${event},
+      COUNT(DISTINCT CASE WHEN event_name = '${event}' THEN unique_event_id ELSE NULL END) AS ${event}_count
+    `
+    )
+    .join(",\n");
+};
+
+
+module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam, channelGrouping, eventFlagColumns };
 
 // Functions must always be exported in order to be used in other files. 

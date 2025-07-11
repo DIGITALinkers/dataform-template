@@ -12,9 +12,9 @@ config {
 }
 
 /*
-The config parameter 'updatePartitionFilter' is used to limit the number of partitions that whill be scanned during the MERGE.
-It should always be greater than or equal to '${dataform.projectConfig.vars.incremental_days_refresh}', otherwise the MERGE would miss 
-several partitions from the data coming in, and the result table would contain duplicate rows.
+  The config parameter 'updatePartitionFilter' is used to limit the number of partitions that whill be scanned during the MERGE.
+  It should always be greater than or equal to '${dataform.projectConfig.vars.incremental_days_refresh}', otherwise the MERGE would miss 
+  several partitions from the data coming in, and the result table would contain duplicate rows.
 */
 
 with ga4_events as (
@@ -55,58 +55,17 @@ with ga4_events as (
     -------------------------------------------------------------------------------------------
 
     /* 
-    Add, modify or delete the following event_params, according to your own source data by using the helpers functions. 
-    If you know the parameter's value type, use the getEventParam function and pass three arguments:
-      - The key (i.e. 'ga_session_id'). 
-      - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
-      - The column name: leave empty to use the parameter name.  
-    If you do not know the parameter's value type, use coalesceEventParam and only pass 2 arguments:
-      - The key 
-      - The column name: leave empty to use the parameter name. 
-    The query will return a column per event_param, named as 'epk_eventParamName'. 
+      This block dynamically generates SQL expressions to unnest event parameters from GA4 data.
+      - `knownParams`: an array of objects with `name` and `type` for event_params with known types (e.g., int, string).
+          --> Uses `getEventParam()` from helpers.js to extract values with correct typing.
+          --> Modify this list in `includes/constants.js` if you want to add more known event parameters.
+      - `flexibleParams`: an array of event_param names where type is unknown or mixed.
+          --> Uses `coalesceEventParam()` to extract any value as string (auto-handling multiple types).
+          --> Useful for handling dynamic or custom parameters without worrying about type mismatches.
     */
 
-    -- Basic session information
-    ${helpers.getEventParam('ga_session_id','int')},
-    ${helpers.getEventParam('ga_session_number','int')},
-
-    -- Session engagement data
-    ${helpers.coalesceEventParam('session_engaged')},
-    ${helpers.getEventParam('engaged_session_event','int')},
-    ${helpers.getEventParam('engagement_time_msec','int')},
-
-    -- Session traffic sources data
-    ${helpers.getEventParam('medium')},
-    ${helpers.getEventParam('source')},
-    ${helpers.getEventParam('campaign')},
-
-    -- Basic page information
-    ${helpers.getEventParam('page_title')},
-    ${helpers.getEventParam('page_location')},
-    ${helpers.getEventParam('entrances','int')},
-
-    -- Scroll interactions data
-    ${helpers.getEventParam('percent_scrolled','int')},
-
-    -- Outbound clicks data
-    ${helpers.getEventParam('link_domain')},
-    ${helpers.getEventParam('link_url')},
-    ${helpers.getEventParam('outbound')},
-
-    -- Site search data
-    ${helpers.getEventParam('search_term')},
-
-    -- Video engagement data
-    ${helpers.getEventParam('video_provider')},
-    ${helpers.getEventParam('video_title')},
-    ${helpers.getEventParam('video_url')},
-    ${helpers.getEventParam('video_duration','int')},
-    ${helpers.getEventParam('video_percent','int')},
-
-    -- File download data
-    ${helpers.getEventParam('file_extension')},
-    ${helpers.getEventParam('file_name')},
-    ${helpers.getEventParam('link_text')},
+    ${constants.knownParams.map(p => helpers.getEventParam(p.name, p.type)).join(',\n')},
+    ${constants.flexibleParams.map(p => helpers.coalesceEventParam(p.name, p.type)).join(',\n')},
 
     -------------------------------------------------------------------------------------------
     -- USER PROPERTIES (user_properties) ------------------------------------------------------
@@ -115,22 +74,18 @@ with ga4_events as (
     -------------------------------------------------------------------------------------------
 
     /* 
-    Add, modify or delete the following user_properties, according to your own source data by using the helpers functions. 
-    If you know the property's value type, use the getUserProperty function and pass three arguments:
-      - The key (i.e. 'visitor_status'). 
-      - The data type (i.e. 'int'): leave empty if it's 'string' type (default type). 
-      - The column name: leave empty to use the property name.  
-    If you do not know the property's value type, use coalesceUserProperty and only pass 2 arguments:
-      - The key 
-      - The column name: leave empty to use the property name. 
-    The query will return a column per user_property, named as 'epk_userPropertyName'. 
+      This block dynamically extracts user properties from GA4 data
+      - `knownUserProperties`: unpacks known user_properties using proper types via `getUserProperty()`
+      - `flexibleUserProperties`: unpacks unknown-type user_properties using `coalesceUserProperty()`
     */
 
-    -- ${helpers.getUserProperty('visitor_status')},
-    -- ${helpers.getUserProperty('custom_client_id')},
-    -- ${helpers.getUserProperty('loyalty_level')},
+    /* 
+    ${constants.knownUserProperties.map(p => helpers.getUserProperty(p.name, p.type)).join(',\n')},
+    ${constants.flexibleUserProperties.map(p => helpers.coalesceUserProperty(p)).join(',\n')},
+    */
 
-    _TABLE_SUFFIX as table_suffix -- Added in the select statement for downstream use in incremental refreshes. 
+
+    _TABLE_SUFFIX as table_suffix -- added in the select statement for downstream use in incremental refreshes.
 
   FROM 
       ${ref('events_*')}
