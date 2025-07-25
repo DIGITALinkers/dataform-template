@@ -187,6 +187,33 @@ const eventFlagColumns = (eventNames) => {
 };
 
 
-module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam, channelGrouping, eventFlagColumns };
+// The eventParamFlagColumns function generates one flag and one count column for each expected value of a specific event parameter.
+// For example, if the param is 'link_domain' and the values are ['facebook.com', 'twitter.com'], it will:
+// - Create a flag column like `has_link_domain_facebook_com`, which is 1 if any event in the session had that param value, 0 otherwise.
+// - Create a count column like `link_domain_facebook_com_count`, which counts distinct events (via unique_event_id) with that param value.
+// This allows session-level behavior segmentation based on parameter values.
+
+const eventParamFlagColumns = (config) => {
+  return config
+    .map(({ param, values }) => {
+      return values
+        .map(value => `
+          MAX(CASE WHEN epk_${param} = '${value}' THEN 1 ELSE 0 END) AS has_${param}_${value},
+          COUNT(DISTINCT CASE WHEN epk_${param} = '${value}' THEN unique_event_id ELSE NULL END) AS ${param}_${value}_count
+        `)
+        .join(',\n');
+    })
+    .join(',\n');
+};
+
+
+const numericFlagColumns = (rules) => {
+  return rules.map(rule => `
+    MAX(CASE WHEN SAFE_CAST(epk_${rule.param} AS INT64) > ${rule.threshold} THEN 1 ELSE 0 END) AS has_${rule.name}
+  `).join(",\n");
+};
+
+
+module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam, channelGrouping, eventFlagColumns, eventParamFlagColumns, numericFlagColumns };
 
 // Functions must always be exported in order to be used in other files. 

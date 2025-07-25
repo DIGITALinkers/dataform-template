@@ -45,7 +45,10 @@ WHERE 1=1
 (
 SELECT 
     unique_session_id, 
-    ${helpers.eventFlagColumns(constants.trackedEventNames)}
+    ${helpers.eventFlagColumns(constants.trackedEventNames)},
+    ${helpers.eventParamFlagColumns(constants.customEventParamFlags)},
+    ${helpers.numericFlagColumns(constants.numericThresholdFlags)}
+
 FROM event_data 
 GROUP BY 
     unique_session_id

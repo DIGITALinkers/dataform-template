@@ -54,8 +54,26 @@ const knownParams = [
 
 // List of dynamic or unknown-type event params (cast as string)
 const flexibleParams = [
-    'session_engaged'
+    'session_engaged',
+    'custom_event_param_1',
+    'custom_event_param_2'
 ];
+
+
+// Defines custom event param flags to generate per session.
+// For each {param, values}, creates flags like has_<param>_<value> and counts like <param>_<value>_count.
+const customEventParamFlags = [
+  { param: 'file_extension', values: ['pdf', 'docx'] },
+  { param: 'video_provider', values: ['youtube', 'vimeo'] },
+  // { param: 'custom_event_param_1', values: ['A', 'B', 'C'] },
+  // { param: 'custom_event_param_2', values: ['X', 'Y'] }
+];
+
+const numericThresholdFlags = [
+  { param: 'engagement_time_msec', threshold: 10000, name: 'engaged_10s' },
+  { param: 'video_percent', threshold: 75, name: 'video_watched_75p' }
+];
+
 
 // List of known user properties with explicit types
 const knownUserProperties = [
@@ -92,6 +110,7 @@ const conversionEvents = [
   'add_payment_info'
 ];
 
+
 // Session engagement threshold (in seconds)
 const engagementThresholdSeconds = 10;
 
@@ -102,10 +121,11 @@ module.exports = {
   GA4_TABLE,
   knownParams,
   flexibleParams,
+  customEventParamFlags,
+  numericThresholdFlags,
   knownUserProperties,
   flexibleUserProperties,
   trackedEventNames,
   conversionEvents,
   engagementThresholdSeconds,
 };
-

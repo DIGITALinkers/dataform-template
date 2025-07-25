@@ -65,7 +65,7 @@ with ga4_events as (
     */
 
     ${constants.knownParams.map(p => helpers.getEventParam(p.name, p.type)).join(',\n')},
-    ${constants.flexibleParams.map(p => helpers.coalesceEventParam(p.name, p.type)).join(',\n')},
+    ${constants.flexibleParams.map(p => helpers.coalesceEventParam(p)).join(',\n')},
 
     -------------------------------------------------------------------------------------------
     -- USER PROPERTIES (user_properties) ------------------------------------------------------
