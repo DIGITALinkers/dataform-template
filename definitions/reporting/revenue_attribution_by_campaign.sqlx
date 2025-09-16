@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  schema: "reporting",
+  name: "revenue_by_campaign"
+}
+
+SELECT
+  campaign,
+  channel_group,
+  COUNT(DISTINCT unique_session_id) AS sessions,
+  SUM(purchase_count) AS purchases,
+  SUM(CAST(event_value_in_usd AS FLOAT64)) AS total_revenue,
+  SAFE_DIVIDE(SUM(purchase_count), COUNT(DISTINCT unique_session_id)) AS session_conversion_rate,
+  SAFE_DIVIDE(SUM(CAST(event_value_in_usd AS FLOAT64)), COUNT(DISTINCT unique_session_id)) AS revenue_per_session
+FROM ${ref("session_flags")}
+GROUP BY campaign, channel_group
+ORDER BY total_revenue DESC

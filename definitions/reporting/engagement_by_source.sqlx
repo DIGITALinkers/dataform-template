@@ -1,0 +1,16 @@
+config {
+  type: "table",
+  schema: "reporting",
+  name: "engagement_by_source"
+}
+
+SELECT
+  channel_group,
+  COUNT(DISTINCT unique_session_id) AS sessions,
+  AVG(engagement_time_msec) / 1000 AS avg_engagement_seconds,
+  AVG(page_view_count) AS avg_page_views,
+  AVG(scroll_count) AS avg_scrolls,
+  SAFE_DIVIDE(SUM(has_user_engagement), COUNT(DISTINCT unique_session_id)) AS engaged_session_rate
+FROM ${ref("session_flags")}
+GROUP BY channel_group
+ORDER BY avg_engagement_seconds DESC
