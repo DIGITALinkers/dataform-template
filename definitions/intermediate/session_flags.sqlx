@@ -17,7 +17,7 @@ pre_operations {
 -- that will then be inserted again by the incremental run.
   ${
     when(incremental(),
-      `delete from ${self()} where event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)`
+      `delete from ${self()} where date_partition >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)`
       )
   }
 }
