@@ -43,6 +43,7 @@ WITH
   GROUP BY
     user_pseudo_id,
     unique_session_id)
+
 SELECT
   --date,
   CASE
