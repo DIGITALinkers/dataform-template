@@ -1,8 +1,8 @@
 config {
     type: "incremental",
     schema: "intermediate", 
-    name: "session_flags",
-    description: "Table of flattened GA4 events, enriched with session-level flags",
+    name: "user_flags",
+    description: "Table of flattened GA4 events, enriched with user-level flags",
     uniqueKey: ["unique_event_id"],
     bigquery: {
         partitionBy: "date_partition",
@@ -44,16 +44,16 @@ WHERE 1=1
 , flags AS 
 (
 SELECT 
-    unique_session_id, 
+    user_pseudo_id, 
     ${helpers.eventFlagColumns(constants.trackedEventNames)},
     ${helpers.eventParamFlagColumns(constants.customEventParamFlags)},
     ${helpers.numericFlagColumns(constants.numericThresholdFlags)}
 
 FROM event_data 
 GROUP BY 
-    unique_session_id
+    user_pseudo_id
 )
 
 SELECT * 
 FROM event_data
-LEFT JOIN flags USING(unique_session_id)
+LEFT JOIN flags USING(user_pseudo_id)

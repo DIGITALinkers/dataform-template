@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  schema: "reporting",
+  name: "conversion_funnel"
+}
+
+SELECT
+  COUNT(DISTINCT unique_session_id) AS total_sessions,
+  SUM(has_view_item) AS sessions_with_view_item,
+  SUM(has_add_to_cart) AS sessions_with_add_to_cart,
+  SUM(has_purchase) AS sessions_with_purchase,
+
+  SAFE_DIVIDE(SUM(has_view_item), COUNT(DISTINCT unique_session_id)) AS pct_with_view_item,
+  SAFE_DIVIDE(SUM(has_add_to_cart), SUM(has_view_item)) AS view_to_cart_rate,
+  SAFE_DIVIDE(SUM(has_purchase), SUM(has_add_to_cart)) AS cart_to_purchase_rate,
+  SAFE_DIVIDE(SUM(has_purchase), COUNT(DISTINCT unique_session_id)) AS overall_conversion_rate
+FROM ${ref("session_flags")}
