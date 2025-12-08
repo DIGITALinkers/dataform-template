@@ -213,7 +213,80 @@ const numericFlagColumns = (rules) => {
   `).join(",\n");
 };
 
+const buildCondition = ({ field, operator, value }) => {
+  if (operator === 'IN') {
+    return `${field} IN (${value.map(v => `'${v}'`).join(', ')})`;
+  }
+  if (typeof value === 'string') {
+    return `${field} ${operator} '${value}'`;
+  }
+  return `${field} ${operator} ${value}`;
+};
 
-module.exports = { getEventParam, coalesceEventParam, getUserProperty, coalesceUserProperty, getItemParam, coalesceItemParam, channelGrouping, eventFlagColumns, eventParamFlagColumns, numericFlagColumns };
+const compositeFlagColumns = (rules) => {
+  return rules.map(rule => {
+    const conditionSql = rule.conditions
+      .map(buildCondition)
+      .join('\n     AND ');
+
+    return `
+      MAX(
+        CASE
+          WHEN ${conditionSql}
+          THEN 1 ELSE 0
+        END
+      ) AS has_${rule.name},
+
+      COUNT(DISTINCT CASE
+        WHEN ${conditionSql}
+        THEN unique_event_id
+      END) AS ${rule.name}_count
+    `;
+  }).join(',\n');
+};
+
+// Sum sessions & event counts for each flag
+const sessionFlagSums = (flags) =>
+  flags
+    .map(
+      f => `
+      SUM(${f}) AS sessions_${f.replace('has_', '')}
+    `
+    )
+    .join(",\n");
+
+const sessionEventCountSums = (counts) =>
+  counts
+    .map(
+      c => `
+      SUM(${c}) AS ${c}
+    `
+    )
+    .join(",\n");
+
+const userFlagSums = (flags) =>
+  flags
+    .map(
+      f => `
+      SUM(${f}) AS users_${f.replace('has_', '')}
+    `
+    )
+    .join(",\n");
 
 // Functions must always be exported in order to be used in other files. 
+module.exports = { 
+  getEventParam, 
+  coalesceEventParam, 
+  getUserProperty, 
+  coalesceUserProperty, 
+  getItemParam, 
+  coalesceItemParam, 
+  channelGrouping, 
+  eventFlagColumns, 
+  eventParamFlagColumns, 
+  numericFlagColumns, 
+  compositeFlagColumns,
+  sessionFlagSums,
+  sessionEventCountSums,
+  userFlagSums
+};

@@ -1,0 +1,36 @@
+config {
+  type: "table",
+  schema: "reporting",
+  description: "User-level aggregated reporting table with dynamic flags"
+}
+
+SELECT
+  -- ======================
+  -- Dimensions
+  -- ======================
+  event_date,
+  device.web_info.browser,
+  device.category AS device_category,
+  device.operating_system,
+  traffic_source.source,
+  traffic_source.medium,
+  traffic_source.name AS campaign,
+  geo.country,
+
+  -- ======================
+  -- Core metrics
+  -- ======================
+  COUNT(DISTINCT user_pseudo_id) AS users,
+
+  -- ======================
+  -- Dynamic user flags
+  -- ======================
+  ${helpers.userFlagSums(constants.sessionFlagColumns)},
+
+  -- ======================
+  -- Dynamic event counts
+  -- ======================
+  ${helpers.sessionEventCountSums(constants.sessionEventCountColumns)}
+
+FROM ${ref('user_flags')}
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8 

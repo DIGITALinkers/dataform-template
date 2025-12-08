@@ -47,7 +47,8 @@ SELECT
     unique_session_id, 
     ${helpers.eventFlagColumns(constants.trackedEventNames)},
     ${helpers.eventParamFlagColumns(constants.customEventParamFlags)},
-    ${helpers.numericFlagColumns(constants.numericThresholdFlags)}
+    ${helpers.numericFlagColumns(constants.numericThresholdFlags)},
+    ${helpers.compositeFlagColumns(constants.compositeEventFlags)}
 
 FROM event_data 
 GROUP BY 

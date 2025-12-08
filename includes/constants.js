@@ -50,28 +50,48 @@ const knownParams = [
   { name: 'file_extension', type: 'string' },
   { name: 'file_name', type: 'string' },
   { name: 'link_text', type: 'string' },
+
+  // Custom params 
+  { name: 'custom_event_param_1', type: 'string' },
+  { name: 'custom_event_param_2', type: 'int' },
+  { name: 'custom_event_param_3', type: 'float' },
 ];
 
-// List of dynamic or unknown-type event params (cast as string)
+// List of dynamic or unknown-type event params (always cast as string)
 const flexibleParams = [
     'session_engaged',
-    'custom_event_param_1',
-    'custom_event_param_2'
+    'custom_flex_event_param',
 ];
-
 
 // Defines custom event param flags to generate per session.
 // For each {param, values}, creates flags like has_<param>_<value> and counts like <param>_<value>_count.
 const customEventParamFlags = [
   { param: 'file_extension', values: ['pdf', 'docx'] },
   { param: 'video_provider', values: ['youtube', 'vimeo'] },
-  // { param: 'custom_event_param_1', values: ['A', 'B', 'C'] },
-  // { param: 'custom_event_param_2', values: ['X', 'Y'] }
+  { param: 'custom_event_param_1', values: ['pdp', 'plp'] },
 ];
 
 const numericThresholdFlags = [
   { param: 'engagement_time_msec', threshold: 10000, name: 'engaged_10s' },
-  { param: 'video_percent', threshold: 75, name: 'video_watched_75p' }
+  { param: 'custom_event_param_2', threshold: 75, name: 'video_watched_75p' },
+];
+
+// Composite rules that combine multiple event attributes
+const compositeEventFlags = [
+  {
+    name: 'view_pdp',
+    conditions: [
+      { field: 'event_name', operator: '=', value: 'page_view' },
+      { field: 'epk_custom_event_param_1', operator: '=', value: 'pdp' }
+    ]
+  },
+  {
+    name: 'high_value_conversion',
+    conditions: [
+      { field: 'event_name', operator: '=', value: 'purchase' },
+      { field: 'epk_custom_event_param_3', operator: '>', value: 100 }
+    ]
+  }
 ];
 
 
@@ -115,6 +135,40 @@ const conversionEvents = [
 const engagementThresholdSeconds = 10;
 
 
+// ============================
+// Derived session flag columns
+// ============================
+
+const sessionFlagColumns = [
+  // Event name flags
+  ...trackedEventNames.map(event => `has_${event}`),
+
+  // Custom event param flags
+  ...customEventParamFlags.flatMap(f =>
+    f.values.map(v => `has_${f.param}_${v}`)
+  ),
+
+  // Numeric threshold flags
+  ...numericThresholdFlags.map(f => `has_${f.name}`),
+
+  // Composite flags
+  ...compositeEventFlags.map(f => `has_${f.name}`)
+];
+
+// ============================
+// Derived event count columns
+// ============================
+
+const sessionEventCountColumns = [
+  // Event name counts
+  ...trackedEventNames.map(event => `${event}_count`),
+
+  // Custom event param counts
+  ...customEventParamFlags.flatMap(f =>
+    f.values.map(v => `${f.param}_${v}_count`)
+  )
+];
+
 module.exports = {
   GA4_DATABASE,
   GA4_DATASET,
@@ -123,9 +177,12 @@ module.exports = {
   flexibleParams,
   customEventParamFlags,
   numericThresholdFlags,
+  compositeEventFlags,
   knownUserProperties,
   flexibleUserProperties,
   trackedEventNames,
   conversionEvents,
   engagementThresholdSeconds,
+  sessionFlagColumns,
+  sessionEventCountColumns
 };
