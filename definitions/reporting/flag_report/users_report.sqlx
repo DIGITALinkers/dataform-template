@@ -12,9 +12,7 @@ SELECT
   device.web_info.browser,
   device.category AS device_category,
   device.operating_system,
-  traffic_source.source,
-  traffic_source.medium,
-  traffic_source.name AS campaign,
+  ${helpers.channelGrouping('traffic_source.source', 'traffic_source.medium', 'traffic_source.name')} AS channel_grouping,
   geo.country,
 
   -- ======================
