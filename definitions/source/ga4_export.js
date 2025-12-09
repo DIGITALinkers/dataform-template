@@ -1,7 +1,5 @@
 declare({
-    database: constants.GA4_DATABASE,
-    schema: constants.GA4_DATASET, 
-    name: constants.GA4_TABLE, 
+    database: 'projet-pole-dl-dataform', // Change to the name of the GCP project your source table is stored in.
+    schema: 'source', // Change to the name of the dataset your source table is stored in.
+    name: 'events_*', // Change to the name of your source table. 
 });
-
-// Nothing to modify here, this is just declaring your source table, based on the constants established in the constants.js file. 

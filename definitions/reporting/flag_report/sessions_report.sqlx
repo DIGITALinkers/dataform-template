@@ -8,12 +8,12 @@ SELECT
   -- ======================
   -- Dimensions
   -- ======================
-  event_date,
-  device.web_info.browser,
-  device.category AS device_category,
-  device.operating_system,
-  ${helpers.channelGrouping('traffic_source.source', 'traffic_source.medium', 'traffic_source.name')} AS channel_grouping,
-  geo.country,
+  session_date,
+  browser,
+  device_category,
+  operating_system,
+  country,
+  channel_grouping,
 
   -- ======================
   -- Core metrics
