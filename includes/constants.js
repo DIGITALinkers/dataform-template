@@ -1,9 +1,4 @@
-// We defined constants to be used across the project for source table and event logic.
-
-// Source table configuration
-const GA4_DATABASE = 'projet-pole-dl-dataform'; // Change to the name of the GCP project your source table is stored in. 
-const GA4_DATASET = 'source'; // Change to the name of the dataset your source table is stored in.
-const GA4_TABLE = 'events_*'; // Change to the name of your source table. 
+// We define constants to be used across the project for source table and event logic.
 
 // Standard GA4 event parameter keys 
 // Add, modify or delete the following event_params, according to your own source data
@@ -170,9 +165,6 @@ const sessionEventCountColumns = [
 ];
 
 module.exports = {
-  GA4_DATABASE,
-  GA4_DATASET,
-  GA4_TABLE,
   knownParams,
   flexibleParams,
   customEventParamFlags,
