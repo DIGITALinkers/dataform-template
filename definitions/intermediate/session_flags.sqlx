@@ -3,10 +3,10 @@ config {
     schema: "intermediate", 
     name: "session_flags",
     description: "Table of flattened GA4 events, enriched with session-level flags",
-    uniqueKey: ["unique_event_id"],
+    uniqueKey: ["unique_session_id"],
     bigquery: {
-        partitionBy: "date_partition",
-        updatePartitionFilter: "date_partition >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+        partitionBy: "session_date",
+        updatePartitionFilter: "session_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
     },
     tags: ['flags']
 }
@@ -45,6 +45,38 @@ WHERE 1=1
 (
 SELECT 
     unique_session_id, 
+
+    -- ======================
+    -- Session timing (first value = session start)
+    -- ======================
+    MIN(date_partition) AS session_date,
+    MIN(event_timestamp) AS session_start_timestamp,
+    MAX(event_timestamp) AS session_end_timestamp,
+    
+    -- ======================
+    -- Dimensions (first value in session)
+    -- ======================
+    ARRAY_AGG(device.web_info.browser IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS browser,
+    ARRAY_AGG(device.category IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS device_category,
+    ARRAY_AGG(device.operating_system IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS operating_system,
+    ARRAY_AGG(geo.country IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS country,
+    ARRAY_AGG(geo.region IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS region,
+    ARRAY_AGG(geo.city IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS city,
+    
+    -- Traffic source (first value)
+    ${helpers.channelGrouping(
+    'ARRAY_AGG(traffic_source.source IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)]',
+    'ARRAY_AGG(traffic_source.medium IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)]',
+    'ARRAY_AGG(traffic_source.name IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)]'
+    )} AS channel_grouping,
+    
+    -- Landing page (first page_location)
+    ARRAY_AGG(epk_page_location IGNORE NULLS ORDER BY event_timestamp LIMIT 1)[OFFSET(0)] AS landing_page,
+    
+    -- ======================
+    -- Session-level flags & event counts 
+    -- ======================
+
     ${helpers.eventFlagColumns(constants.trackedEventNames)},
     ${helpers.eventParamFlagColumns(constants.customEventParamFlags)},
     ${helpers.numericFlagColumns(constants.numericThresholdFlags)},
@@ -56,5 +88,4 @@ GROUP BY
 )
 
 SELECT * 
-FROM event_data
-LEFT JOIN flags USING(unique_session_id)
+FROM flags
