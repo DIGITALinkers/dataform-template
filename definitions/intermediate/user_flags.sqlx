@@ -23,7 +23,7 @@ pre_operations {
 }
 
 /******************************************************************
--- Step 1 : get all events + session flags that will be used ------
+-- Step 1 : get all events + user flags that will be used ------
 -- downstream to track behaviour ----------------------------------
 ******************************************************************/
 
